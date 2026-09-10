@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { Container } from "@/components/container";
 import { GameCard } from "@/components/game-card";
 import { Hero } from "@/components/hero";
-import { ProjectCard } from "@/components/project-card";
+import { Carrot } from "@/components/rabbit";
 import { games } from "@/data/games";
-import { projects } from "@/data/projects";
+import { services } from "@/data/services";
 
 export default function HomePage() {
   return (
@@ -13,65 +12,65 @@ export default function HomePage() {
       <Hero />
 
       <Container className="py-16">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">小遊戲</h2>
-          <Link
-            href="/games"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            全部遊戲
-            <ArrowRight className="size-3.5" />
-          </Link>
+        <div className="text-center">
+          <h2 className="text-3xl font-bold">來玩遊戲吧</h2>
+          <p className="mx-auto mt-3 max-w-lg text-lg leading-relaxed text-muted-foreground">
+            每一款都是針對不同能力設計的，用手機、平板或電腦都可以玩。
+          </p>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2">
           {games.map((game) => (
             <GameCard key={game.slug} game={game} />
           ))}
         </div>
       </Container>
 
-      <Container className="py-16">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">近期作品</h2>
-          <Link
-            href="/projects"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            全部作品
-            <ArrowRight className="size-3.5" />
-          </Link>
-        </div>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {projects.slice(0, 2).map((project) => (
-            <ProjectCard key={project.slug} project={project} />
-          ))}
-        </div>
-      </Container>
-
-      <Container className="pb-24">
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <h2 className="text-xl font-bold tracking-tight">想聊聊嗎？</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-            不管是合作邀約、技術討論，還是純粹想留個腳印，都很歡迎。
+      <div className="border-y-2 border-border bg-muted/40">
+        <Container className="py-16">
+          <div className="flex items-center gap-3">
+            <Carrot className="size-9" />
+            <h2 className="text-3xl font-bold">給家長的話</h2>
+          </div>
+          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+            對孩子來說，遊戲不只是娛樂，而是他們認識世界的方式。
+            這些小遊戲的設計都對應著具體的訓練目標，但對孩子而言，
+            它們就只是好玩而已——這正是職能治療最理想的樣子。
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
+
+          <div className="mt-10 grid gap-5 sm:grid-cols-2">
+            {services.slice(0, 2).map((service) => (
+              <div
+                key={service.slug}
+                className="rounded-3xl border-2 border-border bg-card p-6"
+              >
+                <span className="text-4xl" aria-hidden>
+                  {service.emoji}
+                </span>
+                <h3 className="mt-4 text-xl font-bold">{service.title}</h3>
+                <p className="mt-2 leading-relaxed text-muted-foreground">
+                  {service.summary}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/contact"
-              className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
+              href="/services"
+              className="rounded-2xl bg-accent px-7 py-4 font-bold text-accent-foreground transition-transform hover:scale-105"
             >
-              寄訊息給我
+              看所有服務項目
             </Link>
             <Link
-              href="/guestbook"
-              className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+              href="/booking"
+              className="rounded-2xl border-2 border-border bg-card px-7 py-4 font-medium transition-colors hover:bg-muted"
             >
-              去留言板
+              預約諮詢
             </Link>
           </div>
-        </div>
-      </Container>
+        </Container>
+      </div>
     </>
   );
 }

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Container } from "@/components/container";
+import { Rabbit } from "@/components/rabbit";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { navLinks, siteConfig } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
@@ -26,9 +27,9 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
       <Container className="flex h-16 items-center justify-between">
-        <Link href="/" className="font-mono text-lg font-bold tracking-tight">
+        <Link href="/" className="flex items-center gap-2 text-lg font-bold">
+          <Rabbit className="size-9" />
           {siteConfig.name}
-          <span className="text-accent">.</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">

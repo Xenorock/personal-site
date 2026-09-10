@@ -2,120 +2,109 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Gamepad2 } from "lucide-react";
 import { Container } from "@/components/container";
+import { Rabbit } from "@/components/rabbit";
+import { siteConfig } from "@/lib/site-config";
+import { cn } from "@/lib/utils";
 
-const ROLES = ["寫程式的人", "遊戲玩家", "終身學習者"];
-
-const TYPE_SPEED = 130;
-const DELETE_SPEED = 60;
-const HOLD_DURATION = 1600;
-
-type TypingState = {
-  roleIndex: number;
-  charCount: number;
-  deleting: boolean;
-};
-
-// 打完整個詞就停一下再開始刪除，刪完則換下一個詞
-function nextTypingState(state: TypingState): TypingState {
-  const word = ROLES[state.roleIndex];
-
-  if (!state.deleting && state.charCount === word.length) {
-    return { ...state, deleting: true };
-  }
-
-  if (state.deleting && state.charCount === 0) {
-    return {
-      roleIndex: (state.roleIndex + 1) % ROLES.length,
-      charCount: 0,
-      deleting: false,
-    };
-  }
-
-  return { ...state, charCount: state.charCount + (state.deleting ? -1 : 1) };
-}
+const HAPPY_DURATION = 1500;
 
 export function Hero() {
-  const surfaceRef = useRef<HTMLDivElement>(null);
-  const [typing, setTyping] = useState<TypingState>({
-    roleIndex: 0,
-    charCount: 0,
-    deleting: false,
-  });
+  const rabbitRef = useRef<HTMLDivElement>(null);
+  const [look, setLook] = useState({ x: 0, y: 0 });
+  const [happy, setHappy] = useState(false);
+
+  // 讓兔子的視線追著游標，用 rAF 節流避免每次移動都重新渲染
+  useEffect(() => {
+    let frame = 0;
+
+    function handleMove(event: PointerEvent) {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const el = rabbitRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        setLook({
+          x: (event.clientX - centerX) / (rect.width * 1.5),
+          y: (event.clientY - centerY) / (rect.height * 1.5),
+        });
+      });
+    }
+
+    window.addEventListener("pointermove", handleMove);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
 
   useEffect(() => {
-    const word = ROLES[typing.roleIndex];
-    const finishedWord = !typing.deleting && typing.charCount === word.length;
-    const delay = finishedWord
-      ? HOLD_DURATION
-      : typing.deleting
-        ? DELETE_SPEED
-        : TYPE_SPEED;
-
-    const timer = setTimeout(() => setTyping(nextTypingState), delay);
+    if (!happy) return;
+    const timer = setTimeout(() => setHappy(false), HAPPY_DURATION);
     return () => clearTimeout(timer);
-  }, [typing]);
-
-  // 讓光暈跟著游標，座標透過 CSS 變數傳給背景層，避免每次移動都重新渲染
-  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    const surface = surfaceRef.current;
-    if (!surface) return;
-    const rect = surface.getBoundingClientRect();
-    surface.style.setProperty("--pointer-x", `${event.clientX - rect.left}px`);
-    surface.style.setProperty("--pointer-y", `${event.clientY - rect.top}px`);
-  }
+  }, [happy]);
 
   return (
-    <div
-      ref={surfaceRef}
-      onPointerMove={handlePointerMove}
-      className="group relative overflow-hidden border-b border-border"
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-        style={{
-          background:
-            "radial-gradient(420px circle at var(--pointer-x, 50%) var(--pointer-y, 50%), color-mix(in oklch, var(--accent) 20%, transparent), transparent 70%)",
-        }}
-      />
+    <div className="border-b-2 border-border bg-muted/40">
+      <Container className="grid items-center gap-10 py-16 sm:py-24 md:grid-cols-[1fr_auto]">
+        <div>
+          <p className="font-medium text-accent">{siteConfig.author.role}</p>
+          <h1 className="mt-3 text-4xl leading-tight font-bold sm:text-5xl">
+            哈囉，我是 {siteConfig.name}
+          </h1>
+          <p className="mt-4 text-2xl font-medium text-muted-foreground">
+            {siteConfig.tagline}
+          </p>
+          <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
+            這裡有幾款我設計的小遊戲，陪孩子練手眼協調、專注力和小手肌肉。
+            不用下載、不用註冊，打開就能玩。
+          </p>
 
-      <Container className="relative py-24 sm:py-32">
-        <p className="font-mono text-sm text-accent">$ whoami</p>
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Link
+              href="/games"
+              className="rounded-2xl bg-accent px-7 py-4 text-lg font-bold text-accent-foreground shadow-sm transition-transform hover:scale-105"
+            >
+              🎮 開始玩遊戲
+            </Link>
+            <Link
+              href="/services"
+              className="rounded-2xl border-2 border-border bg-card px-7 py-4 text-lg font-medium transition-colors hover:bg-muted"
+            >
+              家長看這裡
+            </Link>
+          </div>
+        </div>
 
-        <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-6xl">
-          嗨，我是 tutu 老師
-        </h1>
-
-        <p className="mt-4 text-xl text-muted-foreground sm:text-2xl">
-          一個{" "}
-          <span className="font-medium text-foreground">
-            {ROLES[typing.roleIndex].slice(0, typing.charCount)}
-          </span>
-          <span className="ml-0.5 inline-block h-[1.1em] w-[2px] translate-y-[0.15em] animate-pulse bg-accent align-middle" />
-        </p>
-
-        <p className="mt-6 max-w-xl leading-relaxed text-muted-foreground">
-          這裡放我的作品與技術筆記，也放幾款我自己寫的小遊戲。
-          不用註冊、不用下載，打開就能玩。
-        </p>
-
-        <div className="mt-10 flex flex-wrap gap-3">
-          <Link
-            href="/games"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
-          >
-            <Gamepad2 className="size-4" />
-            去玩遊戲
-          </Link>
-          <Link
-            href="/projects"
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-          >
-            看看作品
-            <ArrowRight className="size-4" />
-          </Link>
+        <div
+          ref={rabbitRef}
+          onClick={() => setHappy(true)}
+          className="mx-auto w-48 cursor-pointer sm:w-64"
+          role="button"
+          tabIndex={0}
+          aria-label="摸摸兔子"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setHappy(true);
+            }
+          }}
+        >
+          <Rabbit
+            lookX={look.x}
+            lookY={look.y}
+            happy={happy}
+            className={cn(
+              "w-full transition-transform duration-300",
+              happy ? "-translate-y-3 scale-105" : "hover:scale-105",
+            )}
+          />
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            {happy ? "耶！你摸到我了 🥕" : "摸摸看牠會怎樣"}
+          </p>
         </div>
       </Container>
     </div>

@@ -4,27 +4,38 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: oklch(0.99 0.002 264);
-  --foreground: oklch(0.21 0.013 264);
+  --background: oklch(0.99 0.012 85);
+  --foreground: oklch(0.32 0.03 55);
   --card: oklch(1 0 0);
-  --muted: oklch(0.96 0.004 264);
-  --muted-foreground: oklch(0.52 0.014 264);
-  --border: oklch(0.91 0.006 264);
-  --accent: oklch(0.58 0.2 268);
-  --accent-foreground: oklch(0.99 0 0);
-  --ring: oklch(0.58 0.2 268);
+  --muted: oklch(0.96 0.018 80);
+  --muted-foreground: oklch(0.53 0.035 60);
+  --border: oklch(0.9 0.025 75);
+  --accent: oklch(0.68 0.17 48);
+  --accent-foreground: oklch(0.99 0.005 85);
+  --ring: oklch(0.68 0.17 48);
+
+  /* 四大能力分類色，用來區分遊戲類型 */
+  --skill-eyehand: oklch(0.72 0.16 42);
+  --skill-cognitive: oklch(0.66 0.13 225);
+  --skill-fine: oklch(0.68 0.13 155);
+  --skill-attention: oklch(0.7 0.14 340);
 }
 
 .dark {
-  --background: oklch(0.16 0.012 266);
-  --foreground: oklch(0.95 0.004 264);
-  --card: oklch(0.2 0.014 266);
-  --muted: oklch(0.24 0.014 266);
-  --muted-foreground: oklch(0.69 0.012 264);
-  --border: oklch(0.29 0.016 266);
-  --accent: oklch(0.73 0.17 268);
-  --accent-foreground: oklch(0.16 0.012 266);
-  --ring: oklch(0.73 0.17 268);
+  --background: oklch(0.21 0.02 60);
+  --foreground: oklch(0.94 0.012 80);
+  --card: oklch(0.26 0.022 60);
+  --muted: oklch(0.3 0.024 60);
+  --muted-foreground: oklch(0.73 0.02 75);
+  --border: oklch(0.36 0.026 60);
+  --accent: oklch(0.76 0.15 52);
+  --accent-foreground: oklch(0.21 0.02 60);
+  --ring: oklch(0.76 0.15 52);
+
+  --skill-eyehand: oklch(0.76 0.14 42);
+  --skill-cognitive: oklch(0.72 0.12 225);
+  --skill-fine: oklch(0.74 0.12 155);
+  --skill-attention: oklch(0.76 0.12 340);
 }
 
 @theme inline {
@@ -38,7 +49,13 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-ring: var(--ring);
 
-  --font-sans: var(--font-geist-sans), var(--font-noto-tc), ui-sans-serif, system-ui,
+  --color-eyehand: var(--skill-eyehand);
+  --color-cognitive: var(--skill-cognitive);
+  --color-fine: var(--skill-fine);
+  --color-attention: var(--skill-attention);
+
+  /* 中文為主要閱讀語言，字體順序以 Noto Sans TC 優先 */
+  --font-sans: var(--font-noto-tc), var(--font-geist-sans), ui-sans-serif, system-ui,
     sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
@@ -50,6 +67,8 @@
 
   html {
     scroll-behavior: smooth;
+    /* 兒童與家長都容易閱讀的基礎字級 */
+    font-size: 17px;
   }
 
   body {
@@ -63,9 +82,16 @@
     color: var(--accent-foreground);
   }
 
+  /* 觸控裝置優先：避免小朋友連點時選到文字或觸發縮放 */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
+    outline: 3px solid var(--ring);
+    outline-offset: 3px;
   }
 }
 
