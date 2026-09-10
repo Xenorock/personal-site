@@ -3,7 +3,7 @@ export const siteConfig = {
   title: "tutu 老師 — 個人網站",
   description: "我的作品集、技術筆記，還有幾款可以直接在瀏覽器裡玩的小遊戲。",
   // 之後綁定自訂網域後改成正式網址
-  url: "https://example.com",
+  url: "https://personal-site-psi-woad.vercel.app",
   locale: "zh-TW",
   author: {
     name: "tutu 老師",
