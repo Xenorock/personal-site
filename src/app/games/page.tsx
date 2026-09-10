@@ -61,7 +61,7 @@ export default function GamesPage() {
 
           <p className="mt-7 text-sm leading-relaxed text-muted-foreground">
             提醒：這些遊戲是輔助練習與親子互動的工具，不能取代專業評估與治療。
-            如果你對孩子的發展有疑慮，歡迎預約諮詢。
+            如果你對孩子的發展有疑慮，建議尋求職能治療師的專業評估。
           </p>
         </section>
       </Container>

@@ -63,10 +63,10 @@ export default function HomePage() {
               看所有服務項目
             </Link>
             <Link
-              href="/booking"
+              href="/about"
               className="rounded-2xl border-2 border-border bg-card px-7 py-4 font-medium transition-colors hover:bg-muted"
             >
-              預約諮詢
+              認識 tutu 老師
             </Link>
           </div>
         </Container>

@@ -5,36 +5,32 @@ import { Rabbit } from "@/components/rabbit";
 
 export const metadata: Metadata = {
   title: "關於老師",
-  description: "認識 tutu 老師：兒童職能治療師，相信孩子會在遊戲裡長大。",
+  description:
+    "tutu 老師，長庚大學職能治療學系畢業，八年兒童職能治療經驗，走過診所、醫院、自費體系與學校系統。",
 };
 
-// 以下為示範內容，請 tutu 老師替換成實際的資歷與理念
 const credentials = [
-  "職能治療師證照（字號待填）",
-  "○○大學 職能治療學系",
-  "兒童發展中心臨床經驗 ○ 年",
-  "感覺統合治療相關訓練認證",
+  "長庚大學 職能治療學系",
+  "職能治療師執照",
+  "兒童職能治療臨床經驗 8 年",
+  "服務場域涵蓋診所、醫院、自費體系與學校系統",
 ];
 
 const beliefs = [
   {
-    title: "遊戲就是孩子的工作",
-    body: "孩子透過玩來認識自己的身體、練習解決問題、學會與人相處。所以我的課程幾乎都長得像在玩，只是每個遊戲背後都有清楚的目標。",
+    title: "在玩中學",
+    body: "孩子透過玩來認識自己的身體、練習解決問題、學會與人相處。所以我的課程幾乎都長得像在玩，只是每一個遊戲背後，都有清楚的訓練目標。刺激不需要多，只要設計對了，孩子自然會投入。",
   },
   {
-    title: "家長是最重要的夥伴",
-    body: "一週一次的課程改變有限，真正的進步發生在日常生活裡。我會把方法拆解成你在家就做得到的活動，讓練習自然融入生活。",
-  },
-  {
-    title: "先看見孩子，再看見問題",
-    body: "每個孩子的節奏不一樣。我會先花時間了解他喜歡什麼、害怕什麼，再決定要從哪裡開始。被理解的孩子，才願意嘗試。",
+    title: "打破距離的限制",
+    body: "需要幫助的孩子，不一定住在資源充足的地方。把方法做成打開就能玩的遊戲，是我目前想到最直接的方式——不管你在哪裡，都能開始。",
   },
 ];
 
 export default function AboutPage() {
   return (
     <>
-      <PageHeader title="關於老師" description="認識一下我，還有我怎麼看待孩子。" />
+      <PageHeader title="關於老師" description="認識一下我，還有我為什麼做這個網站。" />
 
       <Container className="py-12">
         <div className="grid gap-10 md:grid-cols-[auto_1fr] md:items-start">
@@ -42,16 +38,22 @@ export default function AboutPage() {
             <Rabbit happy className="w-full" />
           </div>
 
-          <div className="space-y-4 text-lg leading-relaxed text-muted-foreground">
+          <div className="space-y-5 text-lg leading-relaxed text-muted-foreground">
             <p>
-              我是 tutu 老師，一名兒童職能治療師。
-              這段請換成你自己的介紹：你在哪裡執業、主要服務哪個年齡層的孩子、
-              最擅長處理哪些狀況。
+              我畢業於長庚大學職能治療學系，在兒童治療這條路上走了八年。
+              診所、醫院、自費體系、學校系統都待過，
+              也因此看見很多不一樣的家庭與孩子。
             </p>
             <p>
-              第二段可以聊聊你為什麼走上這條路，或是某個讓你印象深刻的孩子。
-              家長在選擇治療師時，往往是被這種真誠的東西打動，
-              而不是一長串的資歷清單。
+              走得越久，越常想起兩件事。一是需要幫助的孩子，
+              不一定住在資源充足的地方；願意陪孩子練習的家長，
+              也常常不知道能從哪裡開始。二是市面上的 3C 內容
+              多半靠強烈的聲光刺激抓住注意力，孩子玩得越久，反而越難靜下來。
+            </p>
+            <p>
+              所以有了這個網站。我想把治療室裡用的方法，
+              做成孩子在家、在偏鄉都能打開就玩的遊戲。刺激不需要多，
+              只要設計對了，孩子自然會投入，能力也會在一次又一次的遊玩裡慢慢長出來。
             </p>
           </div>
         </div>
@@ -74,7 +76,7 @@ export default function AboutPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-2xl font-bold">學經歷與證照</h2>
+          <h2 className="text-2xl font-bold">學經歷</h2>
           <ul className="mt-6 space-y-3">
             {credentials.map((item) => (
               <li
