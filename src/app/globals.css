@@ -95,7 +95,45 @@
   }
 }
 
+@layer components {
+  /* 記憶翻翻樂的翻牌效果：父層給透視，內層繞 Y 軸旋轉 */
+  .card-scene {
+    perspective: 800px;
+  }
+
+  .card-inner {
+    display: block;
+    position: relative;
+    height: 100%;
+    width: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.4s ease;
+  }
+
+  .card-inner.is-flipped {
+    transform: rotateY(180deg);
+  }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    backface-visibility: hidden;
+  }
+
+  .card-face-back {
+    transform: rotateY(180deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .card-inner {
+    transition: none;
+  }
+
   html {
     scroll-behavior: auto;
   }

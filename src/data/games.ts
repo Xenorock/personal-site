@@ -51,6 +51,10 @@ export const gameStatusLabel: Record<GameStatus, string> = {
   planned: "即將登場",
 };
 
+export function getGame(slug: string) {
+  return games.find((game) => game.slug === slug);
+}
+
 export const games: Game[] = [
   {
     slug: "carrot-catch",
@@ -71,7 +75,7 @@ export const games: Game[] = [
     goal: "訓練視覺記憶、短期工作記憶與配對概念，難度可依孩子能力調整卡片數量。",
     emoji: "🃏",
     skill: "cognitive",
-    status: "planned",
+    status: "ready",
     ageRange: "4 歲以上",
   },
   {
