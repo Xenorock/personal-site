@@ -120,7 +120,6 @@ export function ColorQuest() {
   const [soundOn, setSoundOn] = useState(true);
   const [levelIndex, setLevelIndex] = useState(1);
   const [wrong, setWrong] = useState<Position | null>(null);
-  const [focusCell, setFocusCell] = useState<Position | null>(null);
 
   // 機會卡的效果都是下一回合才生效
   const [nextBonus, setNextBonus] = useState(0);
@@ -372,10 +371,6 @@ export function ColorQuest() {
             )),
           )}
 
-          {focusCell && phase === "playing" && (
-            <CellOutline board={board} cell={focusCell} color="#4a3728" />
-          )}
-
           {wrong && <CellOutline board={board} cell={wrong} color="#dc2626" />}
 
           {board.map((lane, laneIndex) =>
@@ -419,7 +414,9 @@ export function ColorQuest() {
             </text>
           </g>
 
-          {/* 不標出哪幾格能走，讓孩子自己找；點錯了會有提示音與紅框 */}
+          {/* 不標出哪幾格能走，讓孩子自己找；點錯了會有提示音與紅框。
+              這些格子刻意不做成可聚焦元素：Chrome 會替 SVG 畫自己的藍色
+              focus 外框，而且是照外接矩形畫的，弧形格子會框出一大塊。 */}
           {board.map((lane, laneIndex) =>
             lane.map((cell) => {
               const label = `第 ${laneIndex + 1} 圈第 ${cell.pos + 1} 格，${
@@ -430,33 +427,13 @@ export function ColorQuest() {
                 <path
                   key={`hit-${laneIndex}-${cell.pos}`}
                   d={cellPath(LANE_GEOMETRY[laneIndex], cell.pos)}
-                  className="track-cell"
                   stroke="transparent"
                   strokeWidth={TRACK_WIDTH}
                   fill="none"
                   pointerEvents="stroke"
-                  role="button"
-                  tabIndex={0}
                   aria-label={label}
                   style={{ cursor: phase === "playing" ? "pointer" : "default" }}
-                  onFocus={(event) => {
-                    // 只有鍵盤操作才顯示外框，滑鼠點選不需要
-                    if (event.currentTarget.matches(":focus-visible")) {
-                      setFocusCell({ lane: laneIndex, pos: cell.pos });
-                    }
-                  }}
-                  onBlur={() => setFocusCell(null)}
-                  onClick={(event) => {
-                    // detail 大於 0 代表滑鼠或觸控，鍵盤合成的點擊不該失去焦點
-                    if (event.detail > 0) event.currentTarget.blur();
-                    handleCellClick(laneIndex, cell.pos);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      handleCellClick(laneIndex, cell.pos);
-                    }
-                  }}
+                  onClick={() => handleCellClick(laneIndex, cell.pos)}
                 >
                   <title>{label}</title>
                 </path>
