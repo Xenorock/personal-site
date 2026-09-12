@@ -1,25 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Dices, RotateCcw, Undo2, Volume2, VolumeX } from "lucide-react";
+import { useState } from "react";
+import { RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { Rabbit } from "@/components/rabbit";
 import {
   addObstacle,
+  availableMoves,
   BASE_DICE,
+  cellCenter,
+  cellPath,
+  clearObstaclesAt,
   COLORS,
   createBoard,
-  resolvePlan,
-  rollDice,
+  LANE_GEOMETRY,
+  pickRandom,
+  rollPlayableDice,
+  TRACK_WIDTH,
+  VIEW_HEIGHT,
+  VIEW_WIDTH,
+  withRepeatBonus,
   type Cell,
-  type ChanceKind,
-  type Step,
+  type ColorKey,
+  type Move,
+  type Position,
 } from "@/lib/color-quest";
 import { playFlip, playMatch, playWin } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
-type Phase = "idle" | "planning" | "moving" | "chance" | "won";
-
-const MOVE_INTERVAL = 650;
+type ChanceKind = "extraDice" | "repeatColor" | "obstacle";
+type Phase = "idle" | "playing" | "chance" | "won";
 
 const CHANCE_CARDS: Record<
   ChanceKind,
@@ -27,167 +36,165 @@ const CHANCE_CARDS: Record<
 > = {
   extraDice: {
     title: "多一顆骰子！",
-    body: "下一回合可以丟六顆骰子，能多走一步。",
+    body: "下一回合可以丟六顆骰子。",
     emoji: "🎲",
   },
   repeatColor: {
-    title: "顏色可以用兩次！",
-    body: "下一回合有一個顏色可以重複使用，等於多走一步。",
+    title: "有顏色可以用兩次！",
+    body: "下一回合會有一顆骰子能用兩次。",
     emoji: "🔁",
   },
   obstacle: {
     title: "前面出現路障！",
-    body: "前方多了一個路障，兔子經過時會自動繞過它。",
+    body: "前方多了一個路障，那一格不能走。繞到別條軌道過去，它就會消失。",
     emoji: "🚧",
   },
 };
 
 const CHANCE_KINDS = Object.keys(CHANCE_CARDS) as ChanceKind[];
 
-// 一回合五顆骰子大約能走 25 格，所以用圈數來控制一局的長度與規劃難度
 const LEVELS = [
-  { label: "散步", laps: 1, hint: "繞 1 圈" },
-  { label: "遠足", laps: 2, hint: "繞 2 圈" },
-  { label: "大冒險", laps: 3, hint: "繞 3 圈" },
+  { label: "散步", cells: 10, hint: "走半圈" },
+  { label: "遠足", cells: 20, hint: "繞一圈" },
+  { label: "大冒險", cells: 40, hint: "繞兩圈" },
 ] as const;
 
-// 回合數越少代表規劃得越好
-function rateStars(rounds: number, laps: number) {
-  if (rounds <= laps) return 3;
-  if (rounds <= laps + 1) return 2;
+const START: Position = { lane: 1, pos: 0 };
+
+// 一回合最多五步，實測平均三步出頭，所以三顆星要走得比平均更有效率
+function rateStars(rounds: number, target: number) {
+  if (rounds <= Math.ceil(target / 4)) return 3;
+  if (rounds <= Math.ceil(target / 3)) return 2;
   return 1;
 }
 
+// 中央鏤空區換算成百分比，讓資訊區跟著 SVG 一起縮放
+const CENTER_BOX = {
+  left: `${((LANE_GEOMETRY[2].x + TRACK_WIDTH) / VIEW_WIDTH) * 100}%`,
+  top: `${((LANE_GEOMETRY[2].y + TRACK_WIDTH) / VIEW_HEIGHT) * 100}%`,
+  width: `${((LANE_GEOMETRY[2].w - TRACK_WIDTH * 2) / VIEW_WIDTH) * 100}%`,
+  height: `${((LANE_GEOMETRY[2].h - TRACK_WIDTH * 2) / VIEW_HEIGHT) * 100}%`,
+};
+
 export function ColorQuest() {
-  const [board, setBoard] = useState<Cell[]>([]);
-  const [position, setPosition] = useState(0);
+  const [board, setBoard] = useState<Cell[][]>([]);
+  const [at, setAt] = useState<Position>(START);
   const [progress, setProgress] = useState(0);
   const [rounds, setRounds] = useState(0);
-  const [dice, setDice] = useState<ReturnType<typeof rollDice>>([]);
-  const [plan, setPlan] = useState<number[]>([]);
-  const [pending, setPending] = useState<Step[]>([]);
+  const [dice, setDice] = useState<ColorKey[]>([]);
+  const [remaining, setRemaining] = useState<number[]>([]);
   const [phase, setPhase] = useState<Phase>("idle");
   const [card, setCard] = useState<ChanceKind | null>(null);
   const [soundOn, setSoundOn] = useState(true);
-  // 預設「遠足」：繞 1 圈常常一回合就結束，機會卡來不及發揮作用
   const [levelIndex, setLevelIndex] = useState(1);
 
-  // allowRepeat 是這一回合生效的效果，nextBonus / nextRepeat 要等下一回合才套用
-  const [allowRepeat, setAllowRepeat] = useState(false);
+  // 機會卡的效果都是下一回合才生效
   const [nextBonus, setNextBonus] = useState(0);
   const [nextRepeat, setNextRepeat] = useState(false);
 
-  const laps = LEVELS[levelIndex].laps;
-  const lapTarget = board.length * laps;
-  const currentLap = board.length
-    ? Math.min(Math.floor(progress / board.length) + 1, laps)
-    : 1;
-  const planSize = dice.length + (allowRepeat ? 1 : 0);
-  const maxPerDice = allowRepeat ? 2 : 1;
+  const target = LEVELS[levelIndex].cells;
+  const moves =
+    phase === "playing" && board.length > 0
+      ? availableMoves(board, at, dice, remaining)
+      : [];
+  const diceLeft = remaining.reduce((sum, count) => sum + count, 0);
+  const stuck = phase === "playing" && moves.length === 0 && diceLeft > 0;
 
   function playIfOn(play: () => void) {
     if (soundOn) play();
   }
 
+  function beginRound(
+    from: Position,
+    bonus: number,
+    repeat: boolean,
+    useBoard: Cell[][],
+  ) {
+    const nextDice = rollPlayableDice(useBoard, from, BASE_DICE + bonus);
+    const base = nextDice.map(() => 1);
+
+    setDice(nextDice);
+    setRemaining(repeat ? withRepeatBonus(base) : base);
+    setRounds((value) => value + 1);
+    setNextBonus(0);
+    setNextRepeat(false);
+    setPhase("playing");
+  }
+
   // 棋盤與骰子都在使用者按下開始後才產生，避免伺服器與客戶端結果不一致
   function startGame() {
-    setBoard(createBoard());
-    setPosition(0);
+    const nextBoard = createBoard();
+    const nextDice = rollPlayableDice(nextBoard, START, BASE_DICE);
+
+    setBoard(nextBoard);
+    setAt(START);
     setProgress(0);
     setRounds(1);
-    setDice(rollDice(BASE_DICE));
-    setPlan([]);
-    setPending([]);
+    setDice(nextDice);
+    setRemaining(nextDice.map(() => 1));
     setCard(null);
-    setAllowRepeat(false);
     setNextBonus(0);
     setNextRepeat(false);
-    setPhase("planning");
+    setPhase("playing");
   }
 
-  // 預設讀目前待生效的效果；剛抽到卡時由呼叫端帶入，避免讀到還沒更新的狀態
-  function startRound(bonus = nextBonus, repeat = nextRepeat) {
-    setDice(rollDice(BASE_DICE + bonus));
-    setAllowRepeat(repeat);
-    setNextBonus(0);
-    setNextRepeat(false);
-    setPlan([]);
-    setRounds((value) => value + 1);
-    setPhase("planning");
-  }
+  function handleMove(move: Move) {
+    const nextRemaining = [...remaining];
+    nextRemaining[move.diceIndex] -= 1;
+    const nextAt: Position = { lane: move.lane, pos: move.pos };
+    const nextProgress = progress + 1;
+    // 走過這一排就代表繞過去了，那一排的路障可以清掉
+    const nextBoard = clearObstaclesAt(board, move.pos);
 
-  function addToPlan(diceIndex: number) {
-    const used = plan.filter((item) => item === diceIndex).length;
-    if (plan.length >= planSize || used >= maxPerDice) return;
+    setRemaining(nextRemaining);
+    setAt(nextAt);
+    setProgress(nextProgress);
+    if (nextBoard !== board) setBoard(nextBoard);
     playIfOn(playFlip);
-    setPlan([...plan, diceIndex]);
+
+    if (nextProgress >= target) {
+      setPhase("won");
+      playIfOn(playWin);
+      return;
+    }
+
+    if (board[move.lane][move.pos].type === "chance") {
+      setCard(pickRandom(CHANCE_KINDS));
+      setPhase("chance");
+      playIfOn(playMatch);
+      return;
+    }
+
+    if (nextRemaining.every((count) => count === 0)) {
+      beginRound(nextAt, nextBonus, nextRepeat, nextBoard);
+    }
   }
-
-  function departure() {
-    if (plan.length !== planSize) return;
-    setPending(resolvePlan(board, position, plan, dice));
-    setPhase("moving");
-  }
-
-  // 依序執行規劃好的每一步，狀態更新都放在計時器回呼裡
-  useEffect(() => {
-    if (phase !== "moving" || pending.length === 0) return;
-
-    const timer = setTimeout(() => {
-      const [step, ...rest] = pending;
-      const landed = step.target;
-      const nextProgress = progress + step.distance;
-
-      if (landed !== null) {
-        setPosition(landed);
-        setProgress(nextProgress);
-        playIfOn(playFlip);
-      }
-
-      setPending(rest);
-
-      if (nextProgress >= lapTarget) {
-        setPhase("won");
-        playIfOn(playWin);
-        return;
-      }
-
-      if (landed !== null && board[landed]?.type === "chance") {
-        setCard(CHANCE_KINDS[Math.floor(Math.random() * CHANCE_KINDS.length)]);
-        setPhase("chance");
-        playIfOn(playMatch);
-        return;
-      }
-
-      if (rest.length === 0) startRound();
-    }, MOVE_INTERVAL);
-
-    return () => clearTimeout(timer);
-    // 只由 phase 與 pending 驅動；每次重新執行時其餘值都是最新的
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, pending]);
 
   function confirmCard() {
     if (!card) return;
 
     let bonus = nextBonus;
     let repeat = nextRepeat;
+    let nextBoard = board;
 
     if (card === "extraDice") bonus = 1;
     if (card === "repeatColor") repeat = true;
-    if (card === "obstacle") setBoard((prev) => addObstacle(prev, position));
+    if (card === "obstacle") {
+      nextBoard = addObstacle(board, at);
+      setBoard(nextBoard);
+    }
 
     setCard(null);
 
-    // 這回合還沒走完，先記下效果，等回合結束才套用
-    if (pending.length > 0) {
+    // 這回合骰子還沒用完就先收著，等回合結束再套用
+    if (remaining.some((count) => count > 0)) {
       setNextBonus(bonus);
       setNextRepeat(repeat);
-      setPhase("moving");
+      setPhase("playing");
       return;
     }
 
-    startRound(bonus, repeat);
+    beginRound(at, bonus, repeat, nextBoard);
   }
 
   if (phase === "idle") {
@@ -197,24 +204,28 @@ export function ColorQuest() {
         <ol className="mt-4 space-y-3 text-lg leading-relaxed text-muted-foreground">
           <li>
             <span className="font-bold text-foreground">1.</span>{" "}
-            每回合會丟出五顆彩色骰子。
+            每回合丟五顆彩色骰子，一顆骰子可以走一格。
           </li>
           <li>
-            <span className="font-bold text-foreground">2.</span> 點骰子排出順序。
-            每個顏色會讓兔子走到
-            <strong className="text-foreground">前方最近的同色格子</strong>。
+            <span className="font-bold text-foreground">2.</span> 只能走到
+            <strong className="text-foreground">顏色一樣的下一格</strong>
+            。跑道有三圈，可以切到旁邊那圈，但顏色一樣要對得上。
           </li>
           <li>
             <span className="font-bold text-foreground">3.</span>{" "}
-            順序不一樣，走的距離就不一樣——先想好再出發！
+            如果前面三格都沒有你手上的顏色，就走不動了，只好換下一回合。
           </li>
           <li>
             <span className="font-bold text-foreground">4.</span> 踩到 ⭐ 會拿到機會卡，
-            繞完指定圈數就過關。
+            走完指定格數就過關。
           </li>
         </ol>
 
-        <fieldset className="mt-8">
+        <p className="mt-5 rounded-xl bg-planning/10 px-4 py-3 text-planning">
+          先想清楚顏色的使用順序，才不會走到一半卡住。用越少回合走完，星星越多。
+        </p>
+
+        <fieldset className="mt-6">
           <legend className="text-xl font-bold">要走多遠？</legend>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {LEVELS.map((item, index) => (
@@ -232,16 +243,12 @@ export function ColorQuest() {
               >
                 {item.label}
                 <span className="mt-1 block text-sm text-muted-foreground">
-                  {item.hint}
+                  {item.hint}（{item.cells} 格）
                 </span>
               </button>
             ))}
           </div>
         </fieldset>
-
-        <p className="mt-5 text-muted-foreground">
-          用越少回合走完，得到的星星越多。想拿三顆星就得好好安排順序。
-        </p>
 
         <button
           type="button"
@@ -254,21 +261,18 @@ export function ColorQuest() {
     );
   }
 
+  const rabbitAt = cellCenter(LANE_GEOMETRY[at.lane], at.pos);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-border bg-card px-5 py-4">
         <p className="text-lg">
           第 <span className="font-bold">{rounds}</span> 回合
         </p>
-        {laps > 1 && (
-          <p className="text-lg">
-            第 <span className="font-bold">{currentLap}</span> / {laps} 圈
-          </p>
-        )}
         <p className="text-lg">
-          進度{" "}
+          還有{" "}
           <span className="font-bold tabular-nums">
-            {Math.min(progress, lapTarget)} / {lapTarget}
+            {Math.max(target - progress, 0)}
           </span>{" "}
           格
         </p>
@@ -283,7 +287,7 @@ export function ColorQuest() {
           </button>
           <button
             type="button"
-            onClick={startGame}
+            onClick={() => setPhase("idle")}
             className="inline-flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 font-medium transition-colors hover:bg-muted"
           >
             <RotateCcw className="size-5" />
@@ -292,87 +296,147 @@ export function ColorQuest() {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 grid-rows-5 gap-1.5 sm:gap-2">
-        {board.map((cell) => {
-          const here = cell.index === position;
-          const color = cell.color ? COLORS[cell.color] : null;
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+          className="w-full"
+          role="img"
+          aria-label={`彩色跑道，兔子在第 ${at.lane + 1} 圈第 ${at.pos + 1} 格`}
+        >
+          {board.map((lane, laneIndex) =>
+            lane.map((cell) => (
+              <path
+                key={`cell-${laneIndex}-${cell.pos}`}
+                d={cellPath(LANE_GEOMETRY[laneIndex], cell.pos)}
+                stroke={cell.blocked ? "#c9c3ba" : COLORS[cell.color].hex}
+                strokeWidth={TRACK_WIDTH}
+                fill="none"
+              />
+            )),
+          )}
 
-          return (
-            <div
-              key={cell.index}
-              style={{ gridColumn: cell.col, gridRow: cell.row }}
-              className={cn(
-                "relative flex aspect-square items-center justify-center rounded-xl border-2 border-black/10 text-lg",
-                cell.blocked ? "bg-muted" : (color?.cell ?? "bg-muted"),
-                here && "ring-4 ring-foreground",
-              )}
-              aria-label={
-                cell.type === "start"
-                  ? "起點，兔子的家"
-                  : `${color?.label ?? ""}色格子${
-                      cell.type === "chance" ? "，機會卡" : ""
-                    }${cell.blocked ? "，有路障" : ""}`
-              }
-            >
-              {cell.blocked ? (
-                <span aria-hidden>🚧</span>
-              ) : cell.type === "start" ? (
-                <span aria-hidden>🏠</span>
-              ) : cell.type === "chance" ? (
-                <span aria-hidden>⭐</span>
-              ) : (
-                <span className="text-black/45" aria-hidden>
-                  {color?.symbol}
-                </span>
-              )}
+          {board.map((lane, laneIndex) =>
+            lane.map((cell) => {
+              const point = cellCenter(LANE_GEOMETRY[laneIndex], cell.pos);
+              const mark = cell.blocked
+                ? "🚧"
+                : cell.pos === 0
+                  ? "🏠"
+                  : cell.type === "chance"
+                    ? "⭐"
+                    : null;
 
-              {here && (
-                <span className="absolute text-2xl sm:text-3xl" aria-hidden>
-                  🐰
-                </span>
-              )}
-            </div>
-          );
-        })}
+              return (
+                <text
+                  key={`mark-${laneIndex}-${cell.pos}`}
+                  x={point.x}
+                  y={point.y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={mark ? 24 : 19}
+                  fill={mark ? undefined : "rgba(0,0,0,0.38)"}
+                  pointerEvents="none"
+                >
+                  {mark ?? COLORS[cell.color].symbol}
+                </text>
+              );
+            }),
+          )}
+
+          {moves.map((move) => {
+            const geo = LANE_GEOMETRY[move.lane];
+            const cell = board[move.lane][move.pos];
+            const point = cellCenter(geo, move.pos);
+            const label = `走到第 ${move.lane + 1} 圈的${COLORS[cell.color].label}色格子`;
+
+            return (
+              <g key={`move-${move.lane}-${move.pos}`}>
+                <path
+                  d={cellPath(geo, move.pos)}
+                  stroke="#ffffff"
+                  strokeWidth={TRACK_WIDTH + 12}
+                  fill="none"
+                  opacity={0.7}
+                />
+                <path
+                  d={cellPath(geo, move.pos)}
+                  stroke={COLORS[cell.color].hex}
+                  strokeWidth={TRACK_WIDTH}
+                  fill="none"
+                />
+                <circle cx={point.x} cy={point.y} r={13} fill="#ffffff" opacity={0.85} />
+                <path
+                  d={cellPath(geo, move.pos)}
+                  stroke="transparent"
+                  strokeWidth={TRACK_WIDTH + 16}
+                  fill="none"
+                  pointerEvents="stroke"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={label}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleMove(move)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleMove(move);
+                    }
+                  }}
+                >
+                  <title>{label}</title>
+                </path>
+              </g>
+            );
+          })}
+
+          <g
+            style={{
+              transform: `translate(${rabbitAt.x}px, ${rabbitAt.y}px)`,
+              transition: "transform 0.35s ease",
+            }}
+            pointerEvents="none"
+          >
+            <circle r={23} fill="#fdfbf7" stroke="#4a3728" strokeWidth={3} />
+            <text textAnchor="middle" dominantBaseline="central" fontSize={26}>
+              🐰
+            </text>
+          </g>
+        </svg>
 
         <div
-          style={{ gridColumn: "2 / 7", gridRow: "2 / 5" }}
-          className="flex flex-col items-center justify-center rounded-2xl bg-muted/60 p-3 text-center"
+          className="pointer-events-none absolute flex flex-col items-center justify-center text-center"
+          style={CENTER_BOX}
         >
-          <div className="w-16 sm:w-20">
+          <div className="w-14 sm:w-20">
             <Rabbit happy={phase === "won"} className="w-full" />
           </div>
-          <p className="mt-2 text-sm leading-snug text-muted-foreground">
+          <p className="mt-2 text-sm leading-snug text-muted-foreground sm:text-base">
             {phase === "won"
-              ? "回到家了！"
-              : phase === "moving"
-                ? "兔子正在走…"
-                : phase === "chance"
-                  ? "拿到機會卡！"
-                  : "排好順序再出發"}
+              ? "到家了！"
+              : phase === "chance"
+                ? "拿到機會卡！"
+                : stuck
+                  ? "走不動了…"
+                  : "點發亮的格子往前走"}
           </p>
         </div>
       </div>
 
       {phase === "won" && (
         <div className="rounded-3xl border-2 border-accent bg-accent/10 p-6 text-center">
-          <p className="text-2xl font-bold">
-            走完 {laps} 圈，兔子回家了！🎉
-          </p>
+          <p className="text-2xl font-bold">走完 {target} 格，兔子到家了！🎉</p>
           <p
             className="mt-3 text-4xl"
-            aria-label={`得到 ${rateStars(rounds, laps)} 顆星`}
+            aria-label={`得到 ${rateStars(rounds, target)} 顆星`}
           >
             <span aria-hidden>
-              {"⭐".repeat(rateStars(rounds, laps))}
+              {"⭐".repeat(rateStars(rounds, target))}
               <span className="opacity-25">
-                {"⭐".repeat(3 - rateStars(rounds, laps))}
+                {"⭐".repeat(3 - rateStars(rounds, target))}
               </span>
             </span>
           </p>
-          <p className="mt-3 text-lg text-muted-foreground">
-            總共用了 {rounds} 回合
-          </p>
+          <p className="mt-3 text-lg text-muted-foreground">總共用了 {rounds} 回合</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <button
               type="button"
@@ -409,113 +473,58 @@ export function ColorQuest() {
         </div>
       )}
 
-      {phase === "planning" && (
+      {(phase === "playing" || phase === "chance") && (
         <div className="rounded-3xl border-2 border-border bg-card p-5 sm:p-6">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-xl font-bold">排出你的路線</h2>
-            <p className="text-muted-foreground">
-              已排 {plan.length} / {planSize}
-            </p>
+            <h2 className="text-xl font-bold">這回合的骰子</h2>
+            <p className="text-muted-foreground">還剩 {diceLeft} 顆沒用</p>
           </div>
-
-          {allowRepeat && (
-            <p className="mt-3 rounded-xl bg-planning/10 px-4 py-2.5 text-planning">
-              機會卡生效：有一個顏色可以用兩次，同一顆骰子可以點兩下。
-            </p>
-          )}
 
           <div className="mt-4 flex flex-wrap gap-3">
-            {dice.map((color, index) => {
-              const used = plan.filter((item) => item === index).length;
-              const full = plan.length >= planSize || used >= maxPerDice;
-
-              return (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => addToPlan(index)}
-                  disabled={full}
-                  aria-label={`${COLORS[color].label}色骰子${
-                    used > 0 ? `，已排入 ${used} 次` : ""
-                  }`}
-                  className={cn(
-                    "relative flex size-16 items-center justify-center rounded-2xl border-2 text-2xl text-black/45 transition-transform sm:size-20",
-                    COLORS[color].cell,
-                    used > 0 ? "border-foreground" : "border-black/10",
-                    full ? "opacity-45" : "hover:scale-105",
-                  )}
-                >
-                  <span aria-hidden>{COLORS[color].symbol}</span>
-                  {used > 0 && (
-                    <span className="absolute -top-2 -right-2 rounded-full bg-foreground px-2 py-0.5 text-sm font-bold text-background">
-                      {used}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-5">
-            <p className="font-medium">你的路線</p>
-            <div className="mt-2 flex min-h-12 flex-wrap items-center gap-2">
-              {plan.length === 0 ? (
-                <p className="text-muted-foreground">
-                  點上面的骰子，決定先走哪個顏色。
-                </p>
-              ) : (
-                plan.map((diceIndex, order) => (
-                  <span key={order} className="flex items-center gap-2">
-                    {order > 0 && (
-                      <span className="text-muted-foreground" aria-hidden>
-                        →
-                      </span>
-                    )}
-                    <span
-                      className={cn(
-                        "flex size-10 items-center justify-center rounded-xl border-2 border-black/10 text-black/45",
-                        COLORS[dice[diceIndex]].cell,
-                      )}
-                    >
-                      <span aria-hidden>{COLORS[dice[diceIndex]].symbol}</span>
-                      <span className="sr-only">
-                        第 {order + 1} 步：{COLORS[dice[diceIndex]].label}色
-                      </span>
-                    </span>
+            {dice.map((color, index) => (
+              <div
+                key={index}
+                aria-label={`${COLORS[color].label}色骰子${
+                  remaining[index] === 0
+                    ? "，已用掉"
+                    : remaining[index] > 1
+                      ? "，可以用兩次"
+                      : ""
+                }`}
+                className={cn(
+                  "relative flex size-14 items-center justify-center rounded-2xl border-2 border-black/10 text-2xl text-black/45 sm:size-16",
+                  remaining[index] === 0 && "opacity-25",
+                )}
+                style={{ backgroundColor: COLORS[color].hex }}
+              >
+                <span aria-hidden>{COLORS[color].symbol}</span>
+                {remaining[index] > 1 && (
+                  <span className="absolute -top-2 -right-2 rounded-full bg-foreground px-2 py-0.5 text-sm font-bold text-background">
+                    ×2
                   </span>
-                ))
-              )}
-            </div>
+                )}
+              </div>
+            ))}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={departure}
-              disabled={plan.length !== planSize}
-              className="inline-flex items-center gap-2 rounded-2xl bg-accent px-7 py-4 text-lg font-bold text-accent-foreground transition-transform hover:scale-105 disabled:scale-100 disabled:opacity-40"
-            >
-              <Dices className="size-5" />
-              出發！
-            </button>
-            <button
-              type="button"
-              onClick={() => setPlan(plan.slice(0, -1))}
-              disabled={plan.length === 0}
-              className="inline-flex items-center gap-2 rounded-2xl border-2 border-border px-6 py-4 text-lg font-medium transition-colors hover:bg-muted disabled:opacity-40"
-            >
-              <Undo2 className="size-5" />
-              退一步
-            </button>
-            <button
-              type="button"
-              onClick={() => setPlan([])}
-              disabled={plan.length === 0}
-              className="rounded-2xl border-2 border-border px-6 py-4 text-lg font-medium transition-colors hover:bg-muted disabled:opacity-40"
-            >
-              清空
-            </button>
-          </div>
+          {stuck ? (
+            <div className="mt-5">
+              <p className="text-lg">
+                前面三格都沒有剩下的顏色，這回合走不動了。
+              </p>
+              <button
+                type="button"
+                onClick={() => beginRound(at, nextBonus, nextRepeat, board)}
+                className="mt-4 rounded-2xl bg-accent px-7 py-4 text-lg font-bold text-accent-foreground transition-transform hover:scale-105"
+              >
+                換下一回合
+              </button>
+            </div>
+          ) : (
+            <p className="mt-4 text-muted-foreground">
+              跑道上發亮的格子就是現在走得到的地方，點它往前走。
+            </p>
+          )}
         </div>
       )}
     </div>
