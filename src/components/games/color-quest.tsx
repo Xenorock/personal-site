@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { Rabbit } from "@/components/rabbit";
 import {
@@ -24,7 +24,7 @@ import {
   type Move,
   type Position,
 } from "@/lib/color-quest";
-import { playFlip, playMatch, playWin } from "@/lib/sound";
+import { playFlip, playMatch, playWin, playWrong } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
 type ChanceKind = "extraDice" | "repeatColor" | "obstacle";
@@ -87,6 +87,7 @@ export function ColorQuest() {
   const [card, setCard] = useState<ChanceKind | null>(null);
   const [soundOn, setSoundOn] = useState(true);
   const [levelIndex, setLevelIndex] = useState(1);
+  const [wrong, setWrong] = useState<Position | null>(null);
 
   // 機會卡的效果都是下一回合才生效
   const [nextBonus, setNextBonus] = useState(0);
@@ -103,6 +104,13 @@ export function ColorQuest() {
   function playIfOn(play: () => void) {
     if (soundOn) play();
   }
+
+  // 走錯的紅框閃一下就收掉。每次點擊都給新物件，連點同一格也會重新計時
+  useEffect(() => {
+    if (!wrong) return;
+    const timer = setTimeout(() => setWrong(null), 700);
+    return () => clearTimeout(timer);
+  }, [wrong]);
 
   function beginRound(
     from: Position,
@@ -135,6 +143,7 @@ export function ColorQuest() {
     setCard(null);
     setNextBonus(0);
     setNextRepeat(false);
+    setWrong(null);
     setPhase("playing");
   }
 
@@ -168,6 +177,20 @@ export function ColorQuest() {
     if (nextRemaining.every((count) => count === 0)) {
       beginRound(nextAt, nextBonus, nextRepeat, nextBoard);
     }
+  }
+
+  function handleCellClick(lane: number, pos: number) {
+    if (phase !== "playing") return;
+
+    const move = moves.find((item) => item.lane === lane && item.pos === pos);
+    if (move) {
+      setWrong(null);
+      handleMove(move);
+      return;
+    }
+
+    playIfOn(playWrong);
+    setWrong({ lane, pos });
   }
 
   function confirmCard() {
@@ -209,7 +232,7 @@ export function ColorQuest() {
           <li>
             <span className="font-bold text-foreground">2.</span> 只能走到
             <strong className="text-foreground">顏色一樣的下一格</strong>
-            。跑道有三圈，可以切到旁邊那圈，但顏色一樣要對得上。
+            。跑道有三圈，前面那一排的三格都可以選，看哪一格跟你的骰子同色。
           </li>
           <li>
             <span className="font-bold text-foreground">3.</span>{" "}
@@ -222,7 +245,8 @@ export function ColorQuest() {
         </ol>
 
         <p className="mt-5 rounded-xl bg-planning/10 px-4 py-3 text-planning">
-          先想清楚顏色的使用順序，才不會走到一半卡住。用越少回合走完，星星越多。
+          畫面不會標出哪一格能走，要自己找。點錯了會有聲音提醒，再看看就好。
+          先想清楚顏色的使用順序，才不會走到一半卡住；用越少回合走完，星星越多。
         </p>
 
         <fieldset className="mt-6">
@@ -315,6 +339,27 @@ export function ColorQuest() {
             )),
           )}
 
+          {wrong && (
+            <g pointerEvents="none">
+              <path
+                d={cellPath(LANE_GEOMETRY[wrong.lane], wrong.pos)}
+                stroke="#dc2626"
+                strokeWidth={TRACK_WIDTH + 12}
+                fill="none"
+              />
+              <path
+                d={cellPath(LANE_GEOMETRY[wrong.lane], wrong.pos)}
+                stroke={
+                  board[wrong.lane][wrong.pos].blocked
+                    ? "#c9c3ba"
+                    : COLORS[board[wrong.lane][wrong.pos].color].hex
+                }
+                strokeWidth={TRACK_WIDTH}
+                fill="none"
+              />
+            </g>
+          )}
+
           {board.map((lane, laneIndex) =>
             lane.map((cell) => {
               const point = cellCenter(LANE_GEOMETRY[laneIndex], cell.pos);
@@ -343,52 +388,6 @@ export function ColorQuest() {
             }),
           )}
 
-          {moves.map((move) => {
-            const geo = LANE_GEOMETRY[move.lane];
-            const cell = board[move.lane][move.pos];
-            const point = cellCenter(geo, move.pos);
-            const label = `走到第 ${move.lane + 1} 圈的${COLORS[cell.color].label}色格子`;
-
-            return (
-              <g key={`move-${move.lane}-${move.pos}`}>
-                <path
-                  d={cellPath(geo, move.pos)}
-                  stroke="#ffffff"
-                  strokeWidth={TRACK_WIDTH + 12}
-                  fill="none"
-                  opacity={0.7}
-                />
-                <path
-                  d={cellPath(geo, move.pos)}
-                  stroke={COLORS[cell.color].hex}
-                  strokeWidth={TRACK_WIDTH}
-                  fill="none"
-                />
-                <circle cx={point.x} cy={point.y} r={13} fill="#ffffff" opacity={0.85} />
-                <path
-                  d={cellPath(geo, move.pos)}
-                  stroke="transparent"
-                  strokeWidth={TRACK_WIDTH + 16}
-                  fill="none"
-                  pointerEvents="stroke"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={label}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => handleMove(move)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      handleMove(move);
-                    }
-                  }}
-                >
-                  <title>{label}</title>
-                </path>
-              </g>
-            );
-          })}
-
           <g
             style={{
               transform: `translate(${rabbitAt.x}px, ${rabbitAt.y}px)`,
@@ -401,6 +400,39 @@ export function ColorQuest() {
               🐰
             </text>
           </g>
+
+          {/* 不標出哪幾格能走，讓孩子自己找；點錯了會有提示音與紅框 */}
+          {board.map((lane, laneIndex) =>
+            lane.map((cell) => {
+              const label = `第 ${laneIndex + 1} 圈第 ${cell.pos + 1} 格，${
+                COLORS[cell.color].label
+              }色${cell.blocked ? "，有路障" : ""}`;
+
+              return (
+                <path
+                  key={`hit-${laneIndex}-${cell.pos}`}
+                  d={cellPath(LANE_GEOMETRY[laneIndex], cell.pos)}
+                  stroke="transparent"
+                  strokeWidth={TRACK_WIDTH}
+                  fill="none"
+                  pointerEvents="stroke"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={label}
+                  style={{ cursor: phase === "playing" ? "pointer" : "default" }}
+                  onClick={() => handleCellClick(laneIndex, cell.pos)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleCellClick(laneIndex, cell.pos);
+                    }
+                  }}
+                >
+                  <title>{label}</title>
+                </path>
+              );
+            }),
+          )}
         </svg>
 
         <div
@@ -417,7 +449,7 @@ export function ColorQuest() {
                 ? "拿到機會卡！"
                 : stuck
                   ? "走不動了…"
-                  : "點發亮的格子往前走"}
+                  : "找找看哪一格可以走"}
           </p>
         </div>
       </div>
@@ -522,7 +554,7 @@ export function ColorQuest() {
             </div>
           ) : (
             <p className="mt-4 text-muted-foreground">
-              跑道上發亮的格子就是現在走得到的地方，點它往前走。
+              看看兔子前面那一排，哪一格的顏色跟骰子一樣就點它。
             </p>
           )}
         </div>

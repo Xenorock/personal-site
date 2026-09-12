@@ -56,6 +56,12 @@ export function playMatch() {
   tone(880, 0.1, 0.2);
 }
 
+// 走錯格子的提示。刻意用柔和的下降音，不帶懲罰感
+export function playWrong() {
+  tone(330, 0, 0.12, 0.09);
+  tone(247, 0.09, 0.2, 0.09);
+}
+
 export function playWin() {
   tone(660, 0, 0.16);
   tone(880, 0.14, 0.16);

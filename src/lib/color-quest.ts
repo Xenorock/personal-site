@@ -180,14 +180,16 @@ export function rollDice(count: number): ColorKey[] {
   return Array.from({ length: count }, randomColor);
 }
 
-/** 下一步能踩到的三格：正前方，以及內外相鄰軌道的斜前方 */
+/**
+ * 下一步能踩到的格子：前面那一排的三格都可以選，不管現在在第幾圈。
+ * 限制成只能切到隔壁一圈的話，畫面上看得到顏色卻走不了，孩子會覺得是壞掉了。
+ */
 export function candidates(board: Cell[][], from: Position): Position[] {
   const pos = (from.pos + 1) % CELLS_PER_LANE;
 
-  return [from.lane - 1, from.lane, from.lane + 1]
-    .filter((lane) => lane >= 0 && lane < LANES)
-    .filter((lane) => !board[lane][pos].blocked)
-    .map((lane) => ({ lane, pos }));
+  return board
+    .map((_, lane) => ({ lane, pos }))
+    .filter(({ lane }) => !board[lane][pos].blocked);
 }
 
 /**
