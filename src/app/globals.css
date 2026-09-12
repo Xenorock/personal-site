@@ -14,11 +14,12 @@
   --accent-foreground: oklch(0.99 0.005 85);
   --ring: oklch(0.68 0.17 48);
 
-  /* 四大能力分類色，用來區分遊戲類型 */
+  /* 能力分類色，用來區分遊戲類型 */
   --skill-eyehand: oklch(0.72 0.16 42);
   --skill-cognitive: oklch(0.66 0.13 225);
   --skill-fine: oklch(0.68 0.13 155);
   --skill-attention: oklch(0.7 0.14 340);
+  --skill-planning: oklch(0.62 0.15 290);
 }
 
 .dark {
@@ -36,6 +37,7 @@
   --skill-cognitive: oklch(0.72 0.12 225);
   --skill-fine: oklch(0.74 0.12 155);
   --skill-attention: oklch(0.76 0.12 340);
+  --skill-planning: oklch(0.72 0.13 290);
 }
 
 @theme inline {
@@ -53,6 +55,7 @@
   --color-cognitive: var(--skill-cognitive);
   --color-fine: var(--skill-fine);
   --color-attention: var(--skill-attention);
+  --color-planning: var(--skill-planning);
 
   /* 中文為主要閱讀語言，字體順序以 Noto Sans TC 優先 */
   --font-sans: var(--font-noto-tc), var(--font-geist-sans), ui-sans-serif, system-ui,

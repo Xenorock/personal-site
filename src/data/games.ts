@@ -1,4 +1,4 @@
-export type Skill = "eyehand" | "cognitive" | "fine" | "attention";
+export type Skill = "eyehand" | "cognitive" | "fine" | "attention" | "planning";
 export type GameStatus = "ready" | "wip" | "planned";
 
 export type Game = {
@@ -20,6 +20,7 @@ export const skillLabel: Record<Skill, string> = {
   cognitive: "認知記憶",
   fine: "精細動作",
   attention: "專注力",
+  planning: "計劃能力",
 };
 
 export const skillStyle: Record<Skill, { text: string; bg: string; ring: string }> = {
@@ -42,6 +43,11 @@ export const skillStyle: Record<Skill, { text: string; bg: string; ring: string 
     text: "text-attention",
     bg: "bg-attention/12",
     ring: "group-hover:border-attention",
+  },
+  planning: {
+    text: "text-planning",
+    bg: "bg-planning/12",
+    ring: "group-hover:border-planning",
   },
 };
 
@@ -77,6 +83,18 @@ export const games: Game[] = [
     skill: "cognitive",
     status: "ready",
     ageRange: "4 歲以上",
+  },
+  {
+    slug: "color-quest",
+    title: "顏色大冒險",
+    tagline: "排好順序，帶兔子回家！",
+    howTo:
+      "丟五顆彩色骰子，先決定要用哪個顏色先走，排好順序再一次出發，讓兔子繞完棋盤回到家。",
+    goal: "訓練計劃能力與執行功能：孩子得先在腦中預想每個顏色會走到哪一格，排出最好的順序後再執行，而不是走一步看一步。用越少回合完成可以拿到越多星星，讓「先想清楚」這件事有明確回饋。過程中同時練習顏色辨識、視覺搜尋與工作記憶；機會卡與路障則提供彈性調整與挫折忍受的練習機會。",
+    emoji: "🎲",
+    skill: "planning",
+    status: "ready",
+    ageRange: "5 歲以上",
   },
   {
     slug: "sort-basket",
