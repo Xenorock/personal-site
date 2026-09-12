@@ -61,6 +61,38 @@ const LEVELS = [
 
 const START: Position = { lane: 1, pos: 0 };
 
+/** 沿著格子形狀畫一圈外框：先描一條較粗的線，再用原色蓋回中間 */
+function CellOutline({
+  board,
+  cell,
+  color,
+}: {
+  board: Cell[][];
+  cell: Position;
+  color: string;
+}) {
+  const geo = LANE_GEOMETRY[cell.lane];
+  const target = board[cell.lane][cell.pos];
+
+  return (
+    <g pointerEvents="none">
+      {/* 外框往四周各多 6 個單位，頭尾也要延伸才不會缺角 */}
+      <path
+        d={cellPath(geo, cell.pos, 6)}
+        stroke={color}
+        strokeWidth={TRACK_WIDTH + 12}
+        fill="none"
+      />
+      <path
+        d={cellPath(geo, cell.pos)}
+        stroke={target.blocked ? "#c9c3ba" : COLORS[target.color].hex}
+        strokeWidth={TRACK_WIDTH}
+        fill="none"
+      />
+    </g>
+  );
+}
+
 // 一回合最多五步，實測平均三步出頭，所以三顆星要走得比平均更有效率
 function rateStars(rounds: number, target: number) {
   if (rounds <= Math.ceil(target / 4)) return 3;
@@ -88,6 +120,7 @@ export function ColorQuest() {
   const [soundOn, setSoundOn] = useState(true);
   const [levelIndex, setLevelIndex] = useState(1);
   const [wrong, setWrong] = useState<Position | null>(null);
+  const [focusCell, setFocusCell] = useState<Position | null>(null);
 
   // 機會卡的效果都是下一回合才生效
   const [nextBonus, setNextBonus] = useState(0);
@@ -339,26 +372,11 @@ export function ColorQuest() {
             )),
           )}
 
-          {wrong && (
-            <g pointerEvents="none">
-              <path
-                d={cellPath(LANE_GEOMETRY[wrong.lane], wrong.pos)}
-                stroke="#dc2626"
-                strokeWidth={TRACK_WIDTH + 12}
-                fill="none"
-              />
-              <path
-                d={cellPath(LANE_GEOMETRY[wrong.lane], wrong.pos)}
-                stroke={
-                  board[wrong.lane][wrong.pos].blocked
-                    ? "#c9c3ba"
-                    : COLORS[board[wrong.lane][wrong.pos].color].hex
-                }
-                strokeWidth={TRACK_WIDTH}
-                fill="none"
-              />
-            </g>
+          {focusCell && phase === "playing" && (
+            <CellOutline board={board} cell={focusCell} color="#4a3728" />
           )}
+
+          {wrong && <CellOutline board={board} cell={wrong} color="#dc2626" />}
 
           {board.map((lane, laneIndex) =>
             lane.map((cell) => {
@@ -421,9 +439,16 @@ export function ColorQuest() {
                   tabIndex={0}
                   aria-label={label}
                   style={{ cursor: phase === "playing" ? "pointer" : "default" }}
+                  onFocus={(event) => {
+                    // 只有鍵盤操作才顯示外框，滑鼠點選不需要
+                    if (event.currentTarget.matches(":focus-visible")) {
+                      setFocusCell({ lane: laneIndex, pos: cell.pos });
+                    }
+                  }}
+                  onBlur={() => setFocusCell(null)}
                   onClick={(event) => {
-                    // 滑鼠點完不要留下鍵盤用的 focus 樣式
-                    event.currentTarget.blur();
+                    // detail 大於 0 代表滑鼠或觸控，鍵盤合成的點擊不該失去焦點
+                    if (event.detail > 0) event.currentTarget.blur();
                     handleCellClick(laneIndex, cell.pos);
                   }}
                   onKeyDown={(event) => {

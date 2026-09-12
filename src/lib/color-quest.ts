@@ -110,10 +110,24 @@ function pointOnSegment(g: Geometry, seg: number, u: number) {
   }
 }
 
-/** 單一格子的軌道形狀，直線段畫線、轉彎段畫弧 */
-export function cellPath(g: Geometry, index: number) {
+function segmentLength(g: Geometry, seg: number) {
+  if (seg === 0 || seg === 4) return g.w - 2 * g.r;
+  if (seg === 2 || seg === 6) return g.h - 2 * g.r;
+  return (Math.PI * g.r) / 2;
+}
+
+/**
+ * 單一格子的軌道形狀，直線段畫線、轉彎段畫弧。
+ * grow 讓路徑往兩端多延伸幾個單位，畫外框時才不會在頭尾留下缺口。
+ */
+export function cellPath(g: Geometry, index: number, grow = 0) {
   const { seg, u0, u1 } = cellRange(index);
-  const pad = (u1 - u0) * 0.06; // 讓相鄰磚塊之間留一點縫
+
+  // 相鄰磚塊之間留一點縫，縫隙大小隨格子長度等比縮放
+  const total = segmentLength(g, seg);
+  const gap = (u1 - u0) * total * 0.06;
+  const pad = total === 0 ? 0 : Math.max(0, gap - grow) / total;
+
   const start = pointOnSegment(g, seg, u0 + pad);
   const end = pointOnSegment(g, seg, u1 - pad);
 
