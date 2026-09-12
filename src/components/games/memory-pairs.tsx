@@ -8,18 +8,59 @@ import { cn } from "@/lib/utils";
 
 type Card = { id: number; symbol: string; matched: boolean };
 
+// 每個主題備 16 種圖案，才夠支撐最高難度的 16 對。
+// 挑選時避開縮小後容易混淆的圖案（例如計程車與小客車）。
 const THEMES = {
-  animals: { label: "動物", symbols: ["🐶", "🐱", "🐰", "🐻", "🐼", "🐨", "🦊", "🐯"] },
-  fruits: { label: "水果", symbols: ["🍎", "🍌", "🍇", "🍓", "🍊", "🍉", "🍑", "🥝"] },
-  vehicles: { label: "車子", symbols: ["🚗", "🚌", "🚑", "🚒", "🚕", "🚜", "🚲", "✈️"] },
+  animals: {
+    label: "動物",
+    symbols: [
+      "🐶", "🐱", "🐰", "🐻", "🐼", "🐨", "🦊", "🐯",
+      "🐷", "🐸", "🐵", "🐔", "🐧", "🦁", "🐮", "🐙",
+    ],
+  },
+  fruits: {
+    label: "水果",
+    symbols: [
+      "🍎", "🍌", "🍇", "🍓", "🍊", "🍉", "🍑", "🥝",
+      "🍐", "🍒", "🥑", "🍍", "🥭", "🍋", "🫐", "🥥",
+    ],
+  },
+  vehicles: {
+    label: "車子",
+    symbols: [
+      "🚗", "🚌", "🚑", "🚒", "🚜", "🚲", "✈️", "🚂",
+      "🚁", "🛵", "🚚", "🛴", "⛵", "🚀", "🚤", "🏍️",
+    ],
+  },
 } as const;
 
 type ThemeKey = keyof typeof THEMES;
 
 const LEVELS = [
-  { label: "簡單", pairs: 3, cols: "grid-cols-3", hint: "6 張卡片" },
-  { label: "中等", pairs: 6, cols: "grid-cols-3 sm:grid-cols-4", hint: "12 張卡片" },
-  { label: "挑戰", pairs: 8, cols: "grid-cols-4", hint: "16 張卡片" },
+  {
+    label: "簡單",
+    pairs: 6,
+    hint: "12 張卡片",
+    cols: "grid-cols-3 sm:grid-cols-4",
+    width: "max-w-xl",
+    symbolSize: "text-4xl sm:text-5xl",
+  },
+  {
+    label: "中等",
+    pairs: 8,
+    hint: "16 張卡片",
+    cols: "grid-cols-4",
+    width: "max-w-xl",
+    symbolSize: "text-4xl sm:text-5xl",
+  },
+  {
+    label: "挑戰",
+    pairs: 16,
+    hint: "32 張卡片",
+    cols: "grid-cols-4 sm:grid-cols-8",
+    width: "max-w-4xl",
+    symbolSize: "text-3xl sm:text-4xl",
+  },
 ] as const;
 
 const PRAISES = ["找到了！", "太棒了！", "好眼力！", "配對成功！", "記憶力真好！"];
@@ -264,7 +305,7 @@ export function MemoryPairs() {
         </div>
       )}
 
-      <div className={cn("mx-auto grid max-w-xl gap-3", level.cols)}>
+      <div className={cn("mx-auto grid gap-2.5 sm:gap-3", level.cols, level.width)}>
         {cards.map((card, index) => {
           const open = card.matched || flipped.includes(index);
 
@@ -283,7 +324,8 @@ export function MemoryPairs() {
                 </span>
                 <span
                   className={cn(
-                    "card-face card-face-back border-2 text-4xl sm:text-5xl",
+                    "card-face card-face-back border-2",
+                    level.symbolSize,
                     card.matched ? "border-fine bg-fine/15" : "border-accent bg-card",
                   )}
                 >
