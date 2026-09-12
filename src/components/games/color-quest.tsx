@@ -412,6 +412,7 @@ export function ColorQuest() {
                 <path
                   key={`hit-${laneIndex}-${cell.pos}`}
                   d={cellPath(LANE_GEOMETRY[laneIndex], cell.pos)}
+                  className="track-cell"
                   stroke="transparent"
                   strokeWidth={TRACK_WIDTH}
                   fill="none"
@@ -420,7 +421,11 @@ export function ColorQuest() {
                   tabIndex={0}
                   aria-label={label}
                   style={{ cursor: phase === "playing" ? "pointer" : "default" }}
-                  onClick={() => handleCellClick(laneIndex, cell.pos)}
+                  onClick={(event) => {
+                    // 滑鼠點完不要留下鍵盤用的 focus 樣式
+                    event.currentTarget.blur();
+                    handleCellClick(laneIndex, cell.pos);
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();

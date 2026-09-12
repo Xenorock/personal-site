@@ -99,6 +99,14 @@
 }
 
 @layer components {
+  /* SVG 的 outline 是照外接矩形畫的，弧形格子會框出一整塊轉彎區。
+     改成替路徑本身上色，形狀才會貼合格子。 */
+  .track-cell:focus-visible {
+    outline: none;
+    stroke: var(--ring);
+    stroke-opacity: 0.45;
+  }
+
   /* 記憶翻翻樂的翻牌效果：父層給透視，內層繞 Y 軸旋轉 */
   .card-scene {
     perspective: 800px;
